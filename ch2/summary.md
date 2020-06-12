@@ -118,3 +118,65 @@ You've hit 58ba62ac6ccd
    ```
    docker run -p 8080:8080 -d go1323/kubia
    ```
+
+## 쿠버네티스 클러스터 설치
+쿠버네티스 설치 방법
+- 로컬 머신에 단일 노드 쿠버네티스 클러스터를 실햏하는 방법 (2장)
+- 구글 쿠버네티스 엔진에 실행중인 클러스터에 접근하는 방법 (2장)
+- kubeadm 도구를 사용해 클러스터를 설치하는 방법 (부록 B)
+- AWS에 쿠버네티스를 설치하는 방법
+
+### Minikube를 활용한 단일 노드 
+Minikube
+- 로컬에서 쿠버네티스를 테스트하고 애플리케이션을 개발하는 목적으로 단일 노드 클러스터를 설치하는 도구
+- Github: [Link](https://github.com/kubernetes/minikube)
+
+Minikube 설치 및 시작
+- 설치 가이드: [Link](https://minikube.sigs.k8s.io/docs/start/)
+- macOX 기준 (linux와 Windows도 위 설치 가이드에서 확인 가능)
+1. 설치
+   ```
+   brew install minikube
+   ```
+   ```
+   curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-darwin-amd64
+   sudo install minikube-darwin-amd64 /usr/local/bin/minikube
+   ```
+2. 클러스터 시작
+   ```
+   minikube start
+   ```
+3. 쿠버네티스 클라이언트 설치하기 (CLI 클라이언트)
+   ```
+   // 설치 커맨드
+   brew install kubectl
+
+   // 기존 정보 삭제
+   rm '/usr/local/bin/kubectl'
+   ```
+   ```
+   // 최신버전 다운로드
+   curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/darwin/amd64/kubectl"
+
+   // 권한 변경
+   chmod +x ./kubectl
+
+   // 바이너리를 Path 설정 폴더로 옮기기 
+   sudo mv ./kubectl /usr/local/bin/kubectl
+   ```
+   ```
+   // 설치 버전 확인
+   kubectl version --client
+
+   // 실행 결과
+   Client Version: version.Info{Major:"1", Minor:"18", GitVersion:"v1.18.3", GitCommit:"2e7996e3e2712684bc73f0dec0200d64eec7fe40", GitTreeState:"clean", BuildDate:"2020-05-21T14:51:23Z", GoVersion:"go1.14.3", Compiler:"gc", Platform:"darwin/amd64"}
+   ```
+4. 클라스터 작동 여부 확인하기
+   ```
+   // 실행 커맨드
+   kubelctl cluster-info
+
+   // 결과 (dashboard가 왜 없지..)
+   Kubernetes master is running at https://192.168.64.2:8443
+   KubeDNS is running at https://192.168.64.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+   ```
