@@ -180,3 +180,69 @@ Minikube 설치 및 시작
    Kubernetes master is running at https://192.168.64.2:8443
    KubeDNS is running at https://192.168.64.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
    ```
+
+### 구글 쿠버네티스 엔진을 활용한 관리형 클러스터 사용하기
+장점
+- 클러스터 노드와 네트워킹을 수동으로 설정할 필요가 없어서 처음사용자에게 부담을 줄여준다
+
+환경 구성
+- 관련 문서
+   - Quick Start Guide: [Link](https://cloud.google.com/kubernetes-engine/docs/quickstart)
+   - GCC Kubernetes Engins: [Link](https://console.cloud.google.com/projectselector/kubernetes?_ga=2.164466687.1348488840.1592002485-1118888932.1577827910)
+- 무료 평가판 사용 가능. (_개인 개정은 모두 사용해서 회사 계정으로 생성_)
+1. GCP 에서 프로젝트 생성
+   - study-k8s
+2. 쿠버네티스 엔진 API 활성화
+   - 쿠버네티스 엔진을 들어가면 자동으로 활성화 (2분 정도 소요)
+3. 구글 클라우드 SDK 설치
+   - 가이드 문사: [Link](https://cloud.google.com/sdk/install?hl=ko)
+   - 설치 과정
+      ```
+      // 설치
+      curl https://sdk.cloud.google.com | bash
+
+      // 쉘 다시 시작
+      exec -l $SHELL
+
+      // gcloud 환경 초기화
+      gcloud init
+
+      // kubectl 도구 설치
+      gcloud components install kubectl
+      ```
+
+노드 3개를 가진 클러스터 생성
+```
+// 실행 커맨드
+cloud container clusters create kubia --num-nodes 3 --machine-type g1-small
+
+// 실행 결과
+Creating cluster kubia in asia-east2-a... Cluster is being health-checked (master is healthy)...done.
+Created [https://container.googleapis.com/v1/projects/study-k8s-280123/zones/asia-east2-a/clusters/kubia].
+To inspect the contents of your cluster, go to: https://console.cloud.google.com/kubernetes/workload_/gcloud/asia-east2-a/kubia?project=study-k8s-280123
+kubeconfig entry generated for kubia.
+NAME   LOCATION      MASTER_VERSION  MASTER_IP     MACHINE_TYPE  NODE_VERSION    NUM_NODES  STATUS
+kubia  asia-east2-a  1.14.10-gke.36  34.92.87.121  g1-small      1.14.10-gke.36  3          RUNNING
+```
+- `1.12.0` 버전 부터 1GB 메모리 이하는 사용할 수 없어서, f1-micro는 생성이 불가능
+
+클러스터 개념
+- 그럼 2.24 넣기
+
+클러스터 노드를 조회
+- 동작 상태 조회
+   ```
+   // 실행 커맨드
+   kubectl get nodes
+
+   // 결과
+   NAME                                   STATUS   ROLES    AGE     VERSION
+   gke-kubia-default-pool-7985c381-bscm   Ready    <none>   3m54s   v1.14.10-gke.36
+   gke-kubia-default-pool-7985c381-jd6x   Ready    <none>   3m53s   v1.14.10-gke.36
+   gke-kubia-default-pool-7985c381-nk10   Ready    <none>   3m53s   v1.14.10-gke.36
+   ```
+- 오브젝트 세부 정보 조회
+   ```
+   kubectl describe node <nodename>
+   kubectl describe node gke-kubia-default-pool-7985c381-bscm
+   ```
