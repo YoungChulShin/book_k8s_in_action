@@ -428,3 +428,4 @@ kubectl describe pod kubia-hrpbr
 
    Cloud Console은 GKE 클러스터, 워크로드, 애플리케이션을 관리, 문제해결, 모니터링할 수 있는 대시보드를 제공합니다.
    ```
+   - GKE 대시보드 설명 링크: [Link](https://cloud.google.com/kubernetes-engine/docs/concepts/dashboards?hl=ko)
