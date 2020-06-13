@@ -246,3 +246,185 @@ kubia  asia-east2-a  1.14.10-gke.36  34.92.87.121  g1-small      1.14.10-gke.36 
    kubectl describe node <nodename>
    kubectl describe node gke-kubia-default-pool-7985c381-bscm
    ```
+
+## 쿠버네티스 첫 애플리케이션 실행하기
+### Node.js 애플리케이션 구동하기
+쿠버네티스 실행해보기
+```
+// 생성 커맨드
+kubectl run kubia --image=go1323/kubia --port=8080 --generator=run/v1
+(--generator=run-pod/v1)
+
+// 결과
+replicationcontroller/kubia created
+```
+- `--image=go1323/kubia` : 실행하고자 하는 컨테이너
+- `-port=8080` : 수신대기 포트
+- `--generator=run-pod/v1` : 디플로이먼트 대신 레플리케이션컨트롤러를 생성하기 위한 커맨드
+
+파드 (Pod)
+- 하나 이상의 밀접하게 연관된 컨테이너의 그룹
+- 같은 워크노트에서 같은 리눅스 네임스페이스로 함께 실행된다
+- 각 파드는 자체 IP, 호스트 이름, 프로세스 등이 있는 논리적으로 분리된 머신
+- 파드에서 실행중인 모든 컨테이너는 동일한 논리적 머신에서 실행한 것처럼 보인다.<br>
+다른 파드에서 실행중인 컨테이너는 같은 워커 노드에서 실행 중이라 할지라도 다른 머신에서 실행중인 것으로 나타난다
+
+파드 조회하기
+```
+// 실행 커맨드
+kubectl get pods
+
+// 결과
+NAME          READY   STATUS    RESTARTS   AGE
+kubia-hrpbr   1/1     Running   0          14m
+```
+
+백그라운드 동작 보기
+- 그럼 2.6 넣기
+
+### 웹 애플리케이션 접근하기
+배경
+- 파드는 개별 IP를 가지고 있지만, 이 주소는 클러스터 내부에 있기 때문에 외부에서 접근이 불가능하다
+- LoadBalancer 유형의 서비스를 생성해서, 여기서 제공되는 퍼블릭 IP를 통해서 파드에 연결할 수 있다
+
+서비스 오브젝트 생성하기
+~~~
+// 실행 커맨드
+kubectl expose rc kubia --type=LoadBalancer --name kubia-http
+
+// 결과
+service/kubia-http exposed
+~~~
+- `LoadBalancer` 타입의 `kubia-http` 서비스를 생성
+
+서비스 조회하기
+~~~
+// 실행 커맨드
+kubectl get services
+
+// 결과
+NAME         TYPE           CLUSTER-IP    EXTERNAL-IP      PORT(S)          AGE
+kubernetes   ClusterIP      10.7.240.1    <none>           443/TCP          9h
+kubia-http   LoadBalancer   10.7.248.27   35.241.103.213   8080:32453/TCP   2m46s
+~~~
+
+서비스 실행하기
+~~~
+// 실행 커맨드
+curl 35.241.103.213:8080
+
+// 결과
+You've hit kubia-hrpbr
+~~~
+
+### 이번에는 논리적으로 일어나는 일을 보자
+레플리케이션 컨트롤러, 파드, 서비스의 동작
+
+그럼 2.7
+- 파드
+   - N개의 컨테이너를 포함한다
+   - 예제에서는 1개의 컨테이너(Node.js 프로세스, 8080 바인딩)를 포함한다
+   - 자체의 고유한 IP와 호스트이름을 가진다
+- 레플리케이션컨트롤러
+   - 항상 정확히 하나의 파드 인스턴스를 실행하도록 지정한다
+   - 어떤 이유로 파드가 사라진다면 레플리케이션컨트롤러 사라진 파드를 대체하기 위한 새로운 파드를 생성한다
+- 서비스
+   - 일시적인(=생성되고, 사라질 수 있는) 파드에 대해서, 외부에서 정적인 주소로 접근할 수 있도록 외부 요청과 파드 사이에 위치한다
+   - 서비스가 생성되면 정적인 IP를 할당 받고, 서비스가 존속하는 동안 변경되지 않는다
+   - 서비스는 동일한 서비스를 제공하는 하나 이상의 파드 그룹의 정적 위치를 나타낸다
+      - _파드 그룹? 레플리카를 말하는 건가? 서비스가 로드밸런서니까 그런것 같긴한데. 그럼 하나의 파드 인스턴스를 레플리케이션 컨트롤러가 실행하도록 지정하는건 뭐지_
+      - _메모 그럼 보여주자_
+
+### 애플리케이션 수평 확장
+현재 레플리케이션컨트롤러 조회
+```
+// 실행 커맨드
+kubectl get replicationcontrollers
+
+// 결과
+NAME    DESIRED   CURRENT   READY   AGE
+kubia   1         1         1       14h
+
+// All 조회
+NAME              READY   STATUS    RESTARTS   AGE
+pod/kubia-hrpbr   1/1     Running   0          14h
+
+NAME                          DESIRED   CURRENT   READY   AGE
+replicationcontroller/kubia   1         1         1       14h
+
+NAME                 TYPE           CLUSTER-IP    EXTERNAL-IP      PORT(S)          AGE
+service/kubernetes   ClusterIP      10.7.240.1    <none>           443/TCP          22h
+service/kubia-http   LoadBalancer   10.7.248.27   35.241.103.213   8080:32453/TCP   13h
+```
+
+레플리카 수 늘리기
+```
+// 실행 커맨드
+kubectl scale rc kubia --replicas=3
+
+// 결과 (바로 되네)
+replicationcontroller/kubia scaled 
+
+// 결과 조회 커맨드
+kubectl get rc
+
+// 결과 조회
+NAME    DESIRED   CURRENT   READY   AGE
+kubia   3         3         1       14h
+
+NAME    DESIRED   CURRENT   READY   AGE
+kubia   3         3         3       14h
+
+// Pod 조회
+kubectl get pods
+
+// Pod 조회 결과
+NAME          READY   STATUS    RESTARTS   AGE (IP)
+kubia-hrpbr   1/1     Running   0          14h (10.4.0.10)
+kubia-htb95   1/1     Running   0          95s (10.4.2.5)
+kubia-tctjg   1/1     Running   0          95s (10.4.1.3)
+
+// Client 입장에서 호출 테스트
+curl 35.241.103.213:8080
+
+// 호출 테스트 결과 (아래 값들이 호출이 됨)
+You've hit kubia-tctjg
+You've hit kubia-hrpbr
+You've hit kubia-htb95
+```
+
+그럼 2.8 추가
+
+
+### 애플리케이션이 실행 중인 노드 검사하기
+```
+// Pid를 IP와 Node를 함께 조회하는 커맨드
+kubectl get pods -o wide
+
+// 결과
+NAME          READY   STATUS    RESTARTS   AGE     IP          NODE                                   NOMINATED NODE   READINESS GATES
+kubia-hrpbr   1/1     Running   0          14h     10.4.2.5    gke-kubia-default-pool-7985c381-nk10   <none>           <none>
+kubia-htb95   1/1     Running   0          8m52s   10.4.0.10   gke-kubia-default-pool-7985c381-bscm   <none>           <none>
+kubia-tctjg   1/1     Running   0          8m52s   10.4.1.3    gke-kubia-default-pool-7985c381-jd6x   <none>           <none>
+
+// pid 세부 정보 보기
+kubectl describe pod kubia-hrpbr
+```
+
+비교 그럼 추가
+
+### 쿠버네티스 대시보드
+기능 
+- GUI 환경에서 파드, RC, 서비스 같은 클러스터의 많은 오브젝트를 조회, 생성, 삭제, 수정이 가능하다
+
+대시보드 URL 조회
+- GKE 기준: `kubectl cluster-info`
+   - 나오지 않네..
+   ```
+   Kubernetes 대시보드
+   Kubernetes 대시보드 부가기능은 GKE에서 기본적으로 사용 중지됩니다.
+
+   GKE v1.15부터는 더 이상 부가기능 API를 사용하여 Kubernetes 대시보드를 사용 설정할 수 없습니다. 프로젝트의 저장소에 있는 안내에 따라 수동으로는 Kubernetes 대시보드를 설치할 수 있습니다. 부가기능을 이미 배포한 클러스터는 계속해서 작동하지만 출시된 모든 업데이트와 보안 패치를 수동으로 적용해야 합니다.
+
+   Cloud Console은 GKE 클러스터, 워크로드, 애플리케이션을 관리, 문제해결, 모니터링할 수 있는 대시보드를 제공합니다.
+   ```
