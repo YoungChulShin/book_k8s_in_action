@@ -392,7 +392,7 @@ You've hit kubia-hrpbr
 You've hit kubia-htb95
 ```
 
-그림 2.8 추가
+![2-8](/Images/2-8.png)
 
 
 ### 애플리케이션이 실행 중인 노드 검사하기
@@ -409,6 +409,9 @@ kubia-tctjg   1/1     Running   0          8m52s   10.4.1.3    gke-kubia-default
 // pid 세부 정보 보기
 kubectl describe pod kubia-hrpbr
 ```
+
+![2-99-pod-diff](/images/2-99-pod_diff.png)
+
 
 비교 그럼 추가
 
