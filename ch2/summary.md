@@ -36,10 +36,10 @@ Hello world
 
 ### 간단한 node.js 애플리케이션 생성하기
 app.js 파일 생성
-- 소스 코드: [Link](/sample_app_js/app.js)
+- 소스 코드: [Link](/ch2/sample_app_js/app.js)
 
 이미지를 위한 도커 파일 생성
-- 소스 코드: [Link](/sample_app_js/Dockerfile)
+- 소스 코드: [Link](/ch2/sample_app_js/Dockerfile)
 
 컨테이너 이미지 생성
 ```
