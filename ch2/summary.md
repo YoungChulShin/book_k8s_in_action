@@ -392,8 +392,7 @@ You've hit kubia-hrpbr
 You've hit kubia-htb95
 ```
 
-![2-8](/Images/2-8.png)
-
+![2-8](/images/2-8.png)
 
 ### 애플리케이션이 실행 중인 노드 검사하기
 ```
