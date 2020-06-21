@@ -208,3 +208,188 @@ kubectl create 명령으로 파드 만들기
 - 기본적으로 파드가 어느 노드에서 실행되는지는 알 필요는 없다
 - 하지만 특정 환경에 대해서 약간의 제약을 두고 싶을 때 셀렉터를 통해 이 작업을 할 수 있다
 
+워커노드 분류에 레이블 사용
+- 레이블은 노드를 포함안 모든 오브젝트에 부착할 수 있다
+- 일반적으로 ops팀은 노드를 클러스터에 추가할 때 관련 정보들을 레이블로 지정해서 노드를 분류한다
+- 커맨드
+   ```
+   // 노드에 gpu 레이블 추가
+   kubectl label node gke-kubia-default-pool-7985c381-bscm gpu=true
+
+   // 결과
+   node/gke-kubia-default-pool-7985c381-bscm labeled
+
+   // 노드 조회
+   kubectl get nodes -l gpu=true
+
+   // 결과
+   NAME                                   STATUS   ROLES    AGE   VERSION
+   gke-kubia-default-pool-7985c381-bscm   Ready    <none>   8d    v1.14.10-gke.36
+   ```
+
+특정 노드에 파드 스케쥴링
+- yaml 파일: [Link](/ch3/codes/kubia-gpu.yaml)
+
+## 3.6 파드에 어노테이션 달기
+어노테이션
+- 레이블과 비슷하지만 식별 정보를 가지지 않는다
+- 특정 어노테이션은 자동으로 오브젝트에 추가되고, 나머지는 수동으로 추가할 수 있다
+- 쿠버네티스에 새로운 기능을 추가하거나, 파드나 또는 다른 API 오브젝트에 설명을 추가할 때 사용된다
+- 총 256KB 까지 저장 가능하다
+
+오브젝트의 어노테이션 조회
+- 커맨드
+   ~~~
+   // 조회 커맨드 (파드 정보에서 확인 가능하다)
+   kubectl get po kubia-hrpbr -o yaml
+
+   // 결과
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     annotations:
+       kubernetes.io/limit-ranger: 'LimitRanger plugin set: cpu request for container kubia'
+   ~~~
+
+어노테이션 추가
+- 커맨드
+   ~~~
+   // 어노테이션 추가
+   kubectl annotate pod kubia-hrpbr mycompany.com/someannotation="foo bar"
+
+   // 결과 
+   pod/kubia-hrpbr annotated
+
+   // 어노테이션 조회
+   kubectl describe pod kubia-hrpbr
+
+   // 조회 결과
+   Annotations:
+      kubernetes.io/limit-ranger: LimitRanger plugin set: cpu request for container kubia
+      mycompany.com/someannotation: foo bar
+   ~~~
+
+## 3.7 네임스페이스를 사용한 리소스 그룹화
+네임스페이스 
+- 오브젝트 이름의 범위. (리눅스의 네임스페이스와는 다르다)
+- 여러 네임스페이스를 사용하면 많은 구성 요소를 가진 복잡한 시스템을 좀 더 작은 개별 그룹으로 분리할 수 있다
+   - 여러 사용자 또는 그룹이 동일한 쿠버네티스 클러스터를 사용하고 있고, 각자 자신들의 리소스를 관리한다면 각각의 고유한 네임스페이스를 사용해야 한다
+   - 이렇게 하면 다른 사용자의 리소스를 수정하거나 삭제하지 않도록 주의를 기울일 필요가 없다
+- 멀티테넌트 환경처럼 리소스를 분리하는데 사용된다
+   - 예:  QA, 개발, 프로덕션 등
+- 리소스 이름은 네임스페이스 안에서만 고유하면 되며, 서로 다른 두 네임스페이스는 동일한 이름의 리소스를 가질 수 있다
+- 노드 리소스는 전역이며, 단일 네임스페이스에 얽매이지 않는다
+
+### 네임스페이스 관리
+네임스페이스 조회
+- 기본적으로는 default 네임스페이스에 대해서만 표시된다
+   ~~~
+   // 네임스페이스 조회
+   kubectl get ns   
+   // 조회 결과
+   NAME                   STATUS   AGE
+   default                Active   8d
+   kube-node-lease        Active   8d
+   kube-public            Active   8d
+   kube-system            Active   8d   
+   // 특정 네임스페이스 파드 보기
+   kubectl get po --namespace kube-system   
+   // 결과
+   NAME                                                        READY     STATUS    RESTARTS   AGE
+   event-exporter-v0.2.5-599d65f456-hl4ph                      2/2       Running   0          8d
+   fluentd-gcp-scaler-bfd6cf8dd-44gdp                          1/1       Running   0          8d
+   fluentd-gcp-v3.1.1-b9m8c                                    2/2       Running   0          8d
+   fluentd-gcp-v3.1.1-ctvnc                                    2/2       Running   0          8d
+   fluentd-gcp-v3.1.1-sbp9m                                    2/2       Running   0          8d
+   heapster-gke-75bcf6dd94-5tlsn                               3/3       Running   0          8d
+   kube-dns-5995c95f64-5m68k                                   4/4       Running   0          8d
+   kube-dns-5995c95f64-mpmtw                                   4/4       Running   0          8d
+   kube-dns-autoscaler-8687c64fc-62hq8                         1/1       Running   0          8d
+   kube-proxy-gke-kubia-default-pool-7985c381-bscm             1/1       Running   0          8d
+   kube-proxy-gke-kubia-default-pool-7985c381-jd6x             1/1       Running   0          8d
+   kube-proxy-gke-kubia-default-pool-7985c381-nk10             1/1       Running   0          8d
+   l7-default-backend-8f479dd9-4dnfn                           1/1       Running   0          8d
+   metrics-server-v0.3.1-5c6fbf777-rf8dw                       2/2       Running   0          8d
+   prometheus-to-sd-676wx                                      2/2       Running   0          8d
+   prometheus-to-sd-6pgr2                                      2/2       Running   0          8d
+   prometheus-to-sd-g9t48                                      2/2       Running   0          8d
+   stackdriver-metadata-agent-cluster-level-5ddfff45b6-l64td   2/2       Running   0          8d
+   ~~~
+
+네임스페이스 생성
+- yaml 파일 또는 커맨드 옵션을 이용해서 생성할 수 있다
+- yaml 파일: [Link](/ch3/codes/custom-namespace.yaml)
+- 커맨드
+   ~~~
+   // yaml 파일을 이용해서 네임스페이스 생성
+   kubectl create -f custom-namespace.yam   
+   // 결과
+   namespace/custom-namespace create   
+   // 커맨드 옵션으로 생성
+   kubectl create namespace custom-namespace
+   ~~~
+    
+다른 네임스페이스의 오브젝트 관리
+- kubectl 을 사용할 때 `--namespace` 플래그를 전달해야 한다
+- 커맨드
+   ~~~
+   // custom-namespace의 파드 조회
+   kubectl get pods -n custom-namespace
+
+   // 결과
+   NAME           READY   STATUS    RESTARTS   AGE
+   kubia-manual   1/1     Running   0          21s
+   ~~~
+
+네임스페이스가 제공하는 격리
+- 네임스페이스를 사용하면 오브젝트를 별도의 그룹으로 분리해 특정한 네임스페이스 안에 속한 리소스를 대상으로 작업할 수 있게 해주지만, 실행 중인 오브젝트에 대한 격리는 제공하지 않는다
+- 예를 들어 네트워크 솔루션이 네임스페이스간 격리를 제공하지 않는 경우, 서로 다른 네임스페이스에 있는 파드끼리 IP주소를 알고 있으면 통신 가능하다
+
+## 3.8 파드 중지와 제거
+
+이름으로 파드 제거
+- 커맨드
+   ~~~
+   kubectl delete po kubia-gpu
+   ~~~
+- 파드를 삭제하면 쿠버네티스는 파드 안에 있는 모든 컨테이너를 종료하도록 지시한다
+   1. 쿠버네티스는 SIGTERM 신호를 프로세스에 보내고 지정된 시간(기본 30초)를 기다린다
+   2. 시간 내에 종료되지 않으면 SIGKILL 신호를 통해 종료한다
+
+레이블 셀렉터를 이용한 파드 삭제
+- 커맨드
+   ~~~
+   kubectl delete po -l creation_method=manual
+   ~~~
+
+네임스페이스를 이용한 파드 제거 
+- 커맨드
+   ~~~
+   kubectl delete ns custom-namespace
+   ~~~
+- 네임스페이스 전체를 삭제하면 파드는 함께 삭제된다
+
+네임스페이스를 유지하면서 모든 파드 삭제
+- 커맨드
+   ~~~
+   kubectl delete po --all
+   ~~~
+- 하지만 삭제해도 replication-controller에 의해서 해당 수량만큼 다시 생성된다
+
+네임스페이스에서 (거의) 모든 리소스 삭제
+- 커맨드
+   ~~~
+   // 삭제 커맨드
+   kubectl delete all --all
+
+   // 결과
+   pod "kubia-hrpbr" deleted
+   replicationcontroller "kubia" deleted
+   service "kubernetes" deleted
+   service "kubia-http" deleted
+   ~~~
+- 쿠버네티스 서비스도 삭제되지만, 잠시후에 다시 생성된다
+   ~~~
+   NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+   kubernetes   ClusterIP   10.7.240.1   <none>        443/TCP   68s
+   ~~~
