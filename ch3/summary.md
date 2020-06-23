@@ -393,3 +393,7 @@ kubectl create 명령으로 파드 만들기
    NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
    kubernetes   ClusterIP   10.7.240.1   <none>        443/TCP   68s
    ~~~
+
+스터디 메모
+- 회사에서는 기본적으로 1개의 컨테이너를 1개의 POD에 올리는 것으로 관리
+- Annotation을 정보 제공 외에 3rd 파티 라이브러리를 이용해서 기능을 수행하는 것도 가능하다
