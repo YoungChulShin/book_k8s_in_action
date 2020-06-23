@@ -399,3 +399,7 @@ kubectl create 명령으로 파드 만들기
 - Annotation을 정보 제공 외에 3rd 파티 라이브러리를 이용해서 기능을 수행하는 것도 가능하다
 - 같은 노드 내에서 IP가 같은 것은 노드에서 도커가 네트워크를 컨테이너 모드로 띄우기 때문이다
 - 서로 다른 파드 끼리 통신이 가능한 것은 중앙에서 라우팅 테이블이 존재하고 이를 기준으로 별도의 네트워크 IP가 할당되기 때문이다
+- 참고 링크
+   - https://coffeewhale.com/k8s/network/2019/04/19/k8s-network-01/
+   - https://bluese05.tistory.com/38
+   
