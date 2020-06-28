@@ -221,4 +221,178 @@
       ```
       - Unknown 파드가 삭제된다
 
+### 레플리케이션컨트롤러 범위 안밖으로 파드를 이동하기
+레플리케이션컨트롤러와 파드의 관계
+- RC는 레이블셀렉터와 일치하는 파드만을 관리한다
+- 파드의 레이블이 변경되면 RC의 범위에서 제외되거나 추가될 수 있다
+- 제외된 파드는 수동으로 생성한 파드와 같은 개념이 된다
+
+레플리케이션컨트롤러와 파드의 관계 테스트
+1. RC가 관리하는 파드에 레이블 추가
+   ~~~
+   // 레이블 추가
+   kubectl label pod kubia-nnhbk type=special
+
+   // 레이블 조회 커맨드
+   kubectl get pods --show-labels
+
+   // 레이블 조회 결과 확인
+   NAME          READY   STATUS    RESTARTS   AGE    LABELS
+   kubia-nnhbk   1/1     Running   0          3d5h   app=kubia,type=special
+   kubia-sl2jl   1/1     Running   0          3d4h   app=kubia
+   kubia-wmnrp   1/1     Running   0          3d4h   app=kubia
+   ~~~
+2. 1개의 파드에서 레이블을 변경해서 RC가 관리하지 않도록 하기
+   ~~~
+   // app 레이블을 kubia에서 foo로 변경하기
+   kubectl label pod kubia-nnhbk app=foo --overwrite
+
+   // 레이블 변경 이후에 신규 생성된 파드 확인 (kubia-hrjsx)
+   NAME          READY   STATUS    RESTARTS   AGE    APP
+   kubia-hrjsx   1/1     Running   0          31s    kubia
+   kubia-nnhbk   1/1     Running   0          3d5h   foo
+   kubia-sl2jl   1/1     Running   0          3d4h   kubia
+   kubia-wmnrp   1/1     Running   0          3d4h   kubia
+   ~~~
+
+레플리케이션컨트롤러의 레이블을 변경한다면?
+- RC의 Replica 수 만큼 새로운 파드가 생성된다
+
+### 파드 템플릿 변경
+변경 영향도
+- 템플릿을 변경하면 기존 파드에는 영향을 주지 않아고 새로 생성되는 파드에만 영향을 미친다
+
+템플릿 변경
+- 커맨드
+   ~~~
+   kubectl edit rc kubia
+   ~~~
+
+### 파드 스케일링
+파드 스케일링하기
+1. 스케일업 방법으로 적용하기
+   ~~~
+   kubectl scale rc kubia --replicas=10
+   ~~~
+2. RC 정의를 편집해서 스케일링하기
+   ~~~
+   // RC 정의 파일 열기
+   kubectl edit rc kubia
+
+   // 원하는 부분 수정하기
+   sepc -> replicas: 10
+
+   // 결과 확인
+   NAME          READY   STATUS              RESTARTS   AGE
+   kubia-565d6   0/1     ContainerCreating   0          4s
+   kubia-58hvp   0/1     ContainerCreating   0          4s
+   kubia-5qs89   0/1     ContainerCreating   0          4s
+   kubia-5z52g   0/1     ContainerCreating   0          4s
+   kubia-gxclw   0/1     ContainerCreating   0          4s
+   kubia-hrjsx   1/1     Running             0          26m
+   kubia-k2rfw   0/1     ContainerCreating   0          4s
+   kubia-nnhbk   1/1     Running             0          3d5h
+   kubia-sl2jl   1/1     Running             0          3d5h
+   kubia-wmnrp   1/1     Running             0          3d5h
+   kubia-xf8zs   0/1     ContainerCreating   0          4s
+   ~~~
+
+스케일 다운하기
+- kubectl scale 명령어 사용
+   ~~~
+   // 스케일 축소
+   kubectl scale rc kubia --replicas=3
+
+   // 진행 과정
+   NAME          READY   STATUS        RESTARTS   AGE
+   kubia-565d6   1/1     Terminating   0          107s
+   kubia-58hvp   1/1     Terminating   0          107s
+   kubia-5qs89   1/1     Terminating   0          107s
+   kubia-5z52g   1/1     Terminating   0          107s
+   kubia-gxclw   1/1     Terminating   0          107s
+   kubia-hrjsx   1/1     Running       0          27m
+   kubia-k2rfw   1/1     Terminating   0          107s
+   kubia-nnhbk   1/1     Running       0          3d5h
+   kubia-sl2jl   1/1     Running       0          3d5h
+   kubia-wmnrp   1/1     Running       0          3d5h
+   kubia-xf8zs   1/1     Terminating   0          107s
+   ~~~
+
+### 페플리케이션컨트롤러 삭제
+`kubectl delete`를 이용한 삭제
+- 파드도 같이 삭제된다
+
+파드는 유지하면서 RC만 삭제
+- `cascade=false` 옵션을 주면 파드는 남아있다
+   ~~~
+   // RC 삭제
+   kubectl delete rc kubia --cascade=false
+
+   // 파드 조회
+   NAME          READY   STATUS    RESTARTS   AGE
+   kubia-hrjsx   1/1     Running   0          31m
+   kubia-nnhbk   1/1     Running   0          3d5h
+   kubia-sl2jl   1/1     Running   0          3d5h
+   kubia-wmnrp   1/1     Running   0          3d5h
+   ~~~
+
+
+## 4.3 레플리케이션컨트롤러 대신 라플리카셋 사용하기
+레플리카셋
+- 차세대 레플리케이션컨트롤러이며, 레플리케이션컨트롤러를 완전히 대체할 것이다
+
+### 레플리카셋과 레플리케이션컨트롤러 비교
+레플리카셋의 이점
+- 이 조금더 풍부한 표현식을 사용하는 파드 셀렉터를 가지고 있다
+- 1개의 레플리카셋으로 2개(아마도 이상)의 파드 세트를 매칭시켜 하나의 그룹으로 관리할 수 있다
+- 값에 상관없이 카의 존재만으로 파드를 매칭시킬 수 있다
+
+### 레플리카셋 정의하기
+kubia-replicaset.yaml: [Link](/ch4/codes/kubia-replicaset/kubia-replicaset.yaml)
+- 코드
+   ~~~
+   apiVersion: apps/v1
+   kind: ReplicaSet
+   metadata:
+       name: kubia
+   spec:
+       replicas: 3
+       selector:
+           matchLabels:
+               app: kubia
+       template:
+           metadata:
+               labels:
+                   app: kubia
+           spec:
+               containers:
+               - name: kubia
+                 image: luksa/kubia
+   ~~~
+   - apps: API 그룹
+   - v1: API 버전
+
+### 레플리카셋 생성하기
+레플리카셋 생성
+- 커맨드
+   ~~~
+   // 생성
+   kubectl create -f kubia-replicaset.yaml
+
+   // 생성 확인
+   kubectl get rs
+
+   // 생성 확인 결과
+   NAME    DESIRED   CURRENT   READY   AGE
+   kubia   3         3         3       2m1s
+   ~~~
+
+MatchExpressions
+- 셀렉터에 표현식을 추가해서 더 강력한 조건을 설정할 수 있다
+
+레플리카셋 삭제
+- 커맨드
+   ~~~
+   kubectl delete rs kubia
+   ~~~
 
