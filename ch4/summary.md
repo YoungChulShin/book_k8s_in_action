@@ -396,3 +396,162 @@ MatchExpressions
    kubectl delete rs kubia
    ~~~
 
+## 4.4 데몬셋을 사용해 각 노드에서 정확히 한 개의 파드 실행하기
+### 데몬셋
+데몬셋 설명
+- 배경: 각 노드에서 하나의 파드만 실행되어야 할 경우가 있다
+- 예시: 로그 수집기 또는 리소스 모니터링 또는 kube-proxy 등
+- 특징
+   - 파드의 타깃 노드가 지정돼 있다
+   - 쿠버네티스 스케쥴러를 건너뛴다
+
+데몬셋 생성
+- yaml 파일 생성: [Link](/ch4/codes/ssd-monitor-deamonset/ssd-monitor-daemonset.yml)
+   ~~~yaml
+   apiVersion: apps/v1
+   kind: DaemonSet
+   metadata:
+      name: ssd-monitor
+   spec:
+      selector:
+         matchLabels:
+               app: ssd-monitor
+      template:
+         metadata:
+               labels:
+                  app: ssd-monitor
+         spec:
+               nodeSelector:
+                  disk: ssd
+               containers:
+               - name: main
+               image: luksa/ssd-monitor
+   ~~~
+   - `disk:ssd` 레이블을 가지는 노드 셀렉터 생성
+- 데몬셋 생성 및 확인
+   ~~~
+   // 생성 커맨드
+   kubectl create -f ssd-monitor-daemonset.yml
+
+   // 데몬셋 조회
+   kubectl get ds
+
+   // 데몬셋 조회 결과
+   NAME          DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+   ssd-monitor   0         0         0       0            0           disk=ssd        2m54s
+   ~~~
+- 노드에 레이블을 추가해서 파드 생성하기
+   ~~~
+   // 노드에 레이블 추가
+   kubectl label node gke-kubia-default-pool-7985c381-bscm disk=ssd
+
+   // 파드 생성 확인을 위해서 파드 조회
+   NAME                READY   STATUS    RESTARTS   AGE
+   ssd-monitor-tm2rs   1/1     Running   0          18s
+   ~~~
+- 노드에서 레이블 제거하기
+   ~~~
+   // 노드의 레이블을 변경해보기
+   kubectl label node gke-kubia-default-pool-7985c381-bscm disk=hdd --overwrite
+
+   // 데몬셋에 의해서 생성된 파드가 삭제된다
+   NAME                READY   STATUS        RESTARTS   AGE
+   ssd-monitor-tm2rs   1/1     Terminating   0          3m55s
+   ~~~
+
+## 4.5 완료 가능한 단일 태스크를 수행하는 파드 실행
+### 잡 리소스
+- 배경: 항상 실행되는 것이 아니라, 한번 실행되고 종료되는 태스크를 수행하고 싶다
+- 특징
+   - 잡을 이용하면 컨테이너 내부에서 실행중인 프로세스가 성공적으로 완료되면 컨테이너를 다시 시작하지 않는 파드를 실행할 수 있다
+   - 노드에 장애가 발생한 경우 해당 노드에 있던 잡이 관리하는 파드는 다른 노드로 다시 스케쥴링 된다
+- 예시
+   - 작업이 제대로 완료되는 것이 매우 중요한 임시 작업에 유용하다
+   - 데이터를 어딘가에 저장하고 있고, 이 데이터를 변환해서 어딘가로 전송해야 하는 경우
+
+잡 리소스 정의
+- yaml 파일 생성: [Link](/ch4/codes/exporter/exporter.yaml)
+   ~~~yaml
+   apiVersion: batch/v1
+   kind: Job
+   metadata:
+      name: batch-job
+   spec:
+      template:
+         metadata:
+               labels:
+                  app: batch-job
+         spec:
+               restartPolicy: OnFailure
+               containers:
+               - name: main
+               image: luksa/batch-job
+   ~~~
+   - api group이 batch에 속한다
+   - restartPolicy의 기본값은 Always이다.<br>
+   잡은 무한성 실행할 수 없으므로 `OnFailure` 또는 `Never` 로 설정한다
+   -  
+- 잡 생성 및 확인
+   ~~~
+   // 잡 생성 커맨드
+   kubectl create -f exporter.yaml
+
+   // 잡 확인 커맨드
+   kubectl get jobs
+
+   // 잡 확인 결과
+   NAME        COMPLETIONS   DURATION   AGE
+   batch-job   0/1           25s        25s
+
+   // 파드 생성 확인 
+   NAME              READY   STATUS    RESTARTS   AGE
+   batch-job-fp8d9   1/1     Running   0          69s
+
+   // 120 초 뒤에 
+   NAME              READY   STATUS      RESTARTS   AGE
+   batch-job-fp8d9   0/1     Completed   0          3m15s
+   ~~~
+   - 완료된 파드가 삭제되지 않는 이유는 해당 파드의 로그를 검사할 수 있게 하기 위해서다<br>
+   (kubectl logs batch-job-fp8d9)
+
+- 잡 설정 
+   - 순차적으로 여러 파드를 실행하는 방법
+      ~~~yaml
+      spec.completions: 5 # 5번 수행 예시
+      ~~~
+   - 병렬로 여러 파드를 실행하는 방법
+      ~~~yaml
+      spec.completions: 5 # 5번 수행 예시
+      spec.parallelism: 2 # 2개의 노드에서 수행
+      ~~~
+
+## 4.6 잡을 주기적으로 또는 한번 실행되도록 스케줄링하기
+크론잡
+- 배경: 미래의 특정 시간 또는 지정된 간격으로 반복실행이 필요할 경우
+
+크론잡 생성
+- yaml 파일 생성
+   ~~~yaml
+   apiVersion: batch/v1beta1
+   kind: CronJob
+   metadata:
+      name: batch-job-every-fifteen-minutes
+   spec:
+      schdule: "0,15,30,45 * * * *"
+      jobTemplate:
+         ## 생략
+   ~~~
+- schdule 정보
+   - 왼쪽에서부터 '분, 시, 일, 월, 요일' 정보를 나타낸다
+   - 0,15,30,45 * * * *
+      - *은 반복되는 값을 정의
+         - 왼쪽부터 시간, 일, 월, 요일
+      - 위 내용은 매시간 매일 매월 모든 요일에 0, 15, 30, 45분에 실행되는 것을 의미한다
+   - 추가 예시
+      - 0, 30 * 1 * * : 매달 첫번째날 30분마다 실행
+      - 0 3 * * 0: 일요일마다 새벽 3시에 실행
+- 크론잡 설정 
+   - 데드라인 설정
+      ~~~yaml
+      spec.startingDeadlineSeconds: 15 ## 15초가 지날때까지 실행하지 않으면 실패로 간주
+      ~~~
