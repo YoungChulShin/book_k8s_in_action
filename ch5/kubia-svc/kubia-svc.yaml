@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+    name: kubia
+spec:
+    ports: 
+    - port: 80  # 서비스가 사용할 포트
+      targetPort: 8080  # 서비스가 포워딩 할 포트
+    selector:
+        app: kubia  # 레이블 셀렉터 설정
