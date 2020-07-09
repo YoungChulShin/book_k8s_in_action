@@ -83,9 +83,58 @@ emtpyDir을 사용하기 위한 매체 지정하기
         emptyDir:
           medium: Memory   # 메모리에 저장하도록 설정
    ~~~
-   
+
+### 깃 리포리터리를 불륨으로 사용하기
+gitRepo 볼륨 동작 
+- 기본적으로 emptyDir 볼륨
+- 파드가 시작되면 컨테이너가 시작되기 전에 깃 리포지터리를 복제하고 특정 리비전을 체크아웃해 데이터로 채운다
+- 단점은 gitRepo에 변경을 푸시할 때마다 웹사이트의 새버전을 서비스하기 위해 파드를 삭제해줘야 한다
+
+파드 생성
+- yaml 파일에서 볼륨 설정의 차이점 
+   ~~~yaml
+   volumes:
+   - name: html
+     gitRepo:  # gitRepo 볼륨을 생성
+       repository: ...  # 깃 리포 저장소 주소를 입력
+       revision: master # 체크아웃 할 브랜치
+       dorectory: .  # 볼륨의 루트 디렉토리에 리포리저티를 복사한다
+   ~~~
+
 
 ## 6.3 워커 노드 파일시스템의 파일 접근
+배경
+- 대부분의 파드는 호스트 노드를 인식하지 못하므로 노드의 파일시스템에 있는 어떤 파일에도 접근하면 안된다
+- 특정 시스템 레벨의 파드는 노드의 파일을 읽거나 파일시스템을 통해 노드 디바이스를 접근하기 위해 노드의 파일시스템을 사용해야 한다
+- 쿠버네티스는 hostPath 볼륨으로 이를 지원한다
+
+### hostPath 볼륨
+hostPath 볼륨
+- 노드 파일시스템의 특정 파일이나 디렉터리를 가리킨다
+- 파드가 삭제되어도 hostPath 볼륨의 컨텐츠는 삭제되지 않으며, 같은 노드에 파드가 스케쥴링된다는 조건에서는 새로운 파드가 기존 파드의 데이터를 모두 볼 수 있다
+- 노드의 시스템파일에 읽기/쓰기를 하는 경우에만 hostPath 볼륨을 사용하고, 여러 파드의 데이터 유지를 위해서는 절대 사용하면 안된다
+
+hostPath 볼륨을 사용하는 시스템 파드 검사하기
+1. 'kube-system' 네임스페이스에서 파드 조회
+   ~~~
+   kubectl get pods --namespace kube-system
+   ~~~
+2. describe로 파드 세부 정보 보기
+   ~~~
+   Volumes:
+      varrun:
+         Type:          HostPath (bare host directory volume)
+         Path:          /var/run/google-fluentd
+         HostPathType:
+      varlog:
+         Type:          HostPath (bare host directory volume)
+         Path:          /var/log
+         HostPathType:
+      varlibdockercontainers:
+         Type:          HostPath (bare host directory volume)
+         Path:          /var/lib/docker/containers
+         HostPathType:
+   ~~~
 
 ## 6.4 퍼시스턴트 스토리지 사용
 
