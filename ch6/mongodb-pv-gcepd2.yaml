@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+    name: mongodb-pv
+spec:
+    capacity:
+        storage: 1Gi
+    accessModes:
+        - ReadWriteOnce
+        - ReadOnlyMany
+    persistentVolumeReclaimPolicy: Retain   ## 클레임이 해제된 후 PV은 유지되어야 한다
+    gcePersistentDisk:
+        pdName: mongodb
+        fsType: ext4
+    

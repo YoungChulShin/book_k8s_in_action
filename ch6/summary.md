@@ -137,7 +137,101 @@ hostPath 볼륨을 사용하는 시스템 파드 검사하기
    ~~~
 
 ## 6.4 퍼시스턴트 스토리지 사용
+배경
+- 파드에서 실행중인 애플리케이션이 디스크에 데이터를 유지해야 한다면? 다른 노드에 재스케쥴링 된 이후에도 동일한 데이터를 사용해야 한다면? 지금까지 소개한 볼륨으로는 사용할 수 없다
+- 이러한 데이터는 어떤 노드에서도 접근이 가능해야 하기 때문에 NAS 유형에 저장돼야 한다
+
+### GCE 퍼시스턴트 디스크를 파드 볼륨으로 사용하기
+
+MondoDB의 데이터를 퍼시스턴트 디스크에 저장해보기
+1. GCE 퍼시스턴트 디스크 생성하기
+   1. 클러스터 조회(region 확인 목적)
+      ~~~
+      gcloud container clusters list
+      ~~~
+   2. 디스크 생성
+      ~~~
+      // 생성
+      gcloud compute disks create --size=1GiB --zone=asia-east2-a mongodb
+
+      // 결과
+      NAME     ZONE          SIZE_GB  TYPE         STATUS
+      mongodb  asia-east2-a  1        pd-standard  READY
+      ~~~
+      - mongodb라는 디스크 생성
+2. 파드 생성
+   1. yaml 파일 생성
+      ~~~yaml
+      apiVersion: v1
+      kind: Pod
+      metadata:
+         name: mongodb
+      spec:
+         containers:
+         - image: mongo
+            name: mongodb
+            volumeMounts: 
+            - name: mongodb-data
+            mountPath: /data/db
+            ports:
+            - containerPort: 27017
+            protocol: TCP
+         volumes:
+         - name: mongodb-data
+            gcePersistentDisk:    # 볼륨의 유형
+            pdName: mondodb # Persistance Disk Name이겠지?
+            fsType: ext4    # 파일 시스템 유형
+      ~~~
+   2. 파드 생성
+      ~~~
+      // 실행
+      kubectl create -f mongodb-pod-gcepd.yaml 
+
+      // 결과 확인
+      ~~~
+   
+
 
 ## 6.5 기반 스토리지 기술과 파드 분리
+### 퍼시스턴트볼륨과 퍼시스턴트볼륨클레임
+등장 배경
+- 인프라스터척처의 세부 사항을 처리하지 않고 애플리케이션이 쿠버네티스 클러스터에 스토리지를 요청할 수 있도록 하기 위한 리소스 도입
+- 개발자가 파드에 기술적인 세부 사항을 기재한 볼륨을 추가하는 대신 클러스터 관리자가 기반 스토리지를 설정하고 쿠버네티스 API 서버로 볼륨 리소스를 생성해 쿠버네티스에 등록한다
+
+퍼시스턴트볼륨과 퍼시스턴트볼륨클레임 사용 과정
+- ![6-6](/images/6-6.jpg)
+
+퍼시스턴트 볼륨 생성
+- yaml 파일 생성
+   ~~~yaml
+   apiVersion: v1
+   kind: PersistentVolume
+   metadata:
+      name: mongodb-pv
+   spec:
+      capacity:
+         storage: 1Gi
+      accessModes:
+         - ReadWriteOnce
+         - ReadOnlyMany
+      persistentVolumeReclaimPolicy: Retain   ## 클레임이 해제된 후 PV은 유지되어야 한다
+      gcePersistentDisk:
+         pdName: mongodb
+         fsType: ext4
+   ~~~
+- 볼륨 조회
+   ~~~
+   // 명령어
+   kubectl get pv
+
+   // 결과
+   NAME         CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS
+   mongodb-pv   1Gi        RWO,ROX        Retain           Available
+   ~~~
+- PV과 클러스터터 노드는 파드나 다른 PVC과 달리 특정 네임스페이스에 속하지 않는다
+   - ![6-7](/images/6-7.jpg)
+
+
+
 
 ## 6.6 퍼시스턴트불륨의 동적 프로비저닝

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: mongodb
+spec:
+    containers:
+    - image: mongo
+      name: mongodb
+      volumeMounts: 
+      - name: mongodb-data
+        mountPath: /data/db
+      ports:
+      - containerPort: 27017
+        protocol: TCP
+    volumes:
+    - name: mongodb-data
+      gcePersistentDisk:    # 볼륨의 유형
+        pdName: mongodb # Persistance Disk Name이겠지?
+        fsType: ext4    # 파일 시스템 유형
