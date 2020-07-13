@@ -184,13 +184,21 @@ MondoDB의 데이터를 퍼시스턴트 디스크에 저장해보기
       ~~~
    2. 파드 생성
       ~~~
-      // 실행
       kubectl create -f mongodb-pod-gcepd.yaml 
-
-      // 결과 확인
       ~~~
-   
 
+### 다른 유형의 볼륨 사용하기
+AWS Elastic Block Store
+- yaml 정의
+   ~~~yaml
+   spec:
+      volumes:
+      - name: mongodb-data
+        awsElasticBlockStore: # gcePersistentDisk 대신 EBS 사용
+          volumeId: my-Volume # EBS 볼륨의 ID
+          fsType: ext4
+   ~~~
+   
 
 ## 6.5 기반 스토리지 기술과 파드 분리
 ### 퍼시스턴트볼륨과 퍼시스턴트볼륨클레임
@@ -202,7 +210,7 @@ MondoDB의 데이터를 퍼시스턴트 디스크에 저장해보기
 - ![6-6](/images/6-6.jpg)
 
 퍼시스턴트 볼륨 생성
-- yaml 파일 생성
+- yaml 파일 생성 (mongodb-pv-gcepd2.yaml)
    ~~~yaml
    apiVersion: v1
    kind: PersistentVolume
@@ -231,7 +239,161 @@ MondoDB의 데이터를 퍼시스턴트 디스크에 저장해보기
 - PV과 클러스터터 노드는 파드나 다른 PVC과 달리 특정 네임스페이스에 속하지 않는다
    - ![6-7](/images/6-7.jpg)
 
+퍼시스턴트불륨클레임을 통해서 퍼시스턴트볼륨 요청
+- yaml 파일 생성
+   - mongodb-pvc.yaml
+      ~~~yaml
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+         name: mongodb-pvc
+      spec:
+         resources:
+            requests:
+                  storage: 1Gi   # 요청 용량
+         accessModes:
+            - ReadWriteOnce
+         storageClassName: ""
+      ~~~
+   - 퍼시스턴트볼륨은 클레임의 요청을 수락할 만큼의 용량이 있어야 하고, 접근 모드를 포함해야 한다
+- 생성된 PVC 조회
+   ~~~
+   // 조회
+   kubectl get pvc
 
+   // 조회 결과
+   NAME          STATUS   VOLUME       CAPACITY   ACCESS MODES   STORAGECLASS   AGE
+   mongodb-pvc   Bound    mongodb-pv   1Gi        RWO,ROX                       4m10s
+   ~~~
+   - 접근 모드 값
+      - RWO(ReadWriteOnece): 단일 노드만ㄷ일 읽기/쓰기용 볼륨을 마운트 할 수 있다
+      - ROX(ReadOnlyMany): 다수의 노드가 읽기용 볼륨을 마운트 할 수 있다
+      - RWX(ReadWriteMany): 다수의 노드가 읽기/쓰기용 불륨을 마운트할 수 있다
+- PV 조회해보기
+   ~~~
+   // 조회
+   kubectl get pv
 
+   // 조회 결과
+   NAME         CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                 STORAGECLASS   REASON   AGE
+   mongodb-pv   1Gi        RWO,ROX        Retain           Bound    default/mongodb-pvc                           6h40m
+   ~~~
+   - Status가 Avaiable에서 Bound로 변경되어 있다
+
+파드에서 퍼시스턴트볼륨클레임 사용하기
+- yaml 파일 생성
+   ~~~yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+      name: mongodb
+   spec:
+      containers:
+      - image: mongo
+         name: mongodb
+         volumeMounts:
+         - name: mongodb-data
+         mountPath: /data/db
+         ports:
+         - containerPort: 27017
+         protocol: TCP
+      volumes:
+      - name: mongodb-data
+         persistentVolumeClaim:
+         claimName: mongodb-pvc   
+   ~~~
+
+PV과 PVC을 사용할 때의 장점
+- ![6-8](/images/6-8.jpg)
+- 개발자가 조금 더 개발에 집중할 수 있게 한다. 기저에 사용된 실제 스토리지 기술을 알 필요가 없다
+
+PV 재사용
+- bound가 되어 있는 상태에서 Pod와 PVC을 삭제하고, 다시 PVC을 생성하면 어떻게 될까?
+   - PV이 released 상태로 남아있다
+   - 이는 이미 볼륨을 사용했기 때문인데, 관리자가 볼륨을 완전히 비우지 않으면 새로운 클레임에 바인딩할 수 없다
+
+클레임 정책
+- Retain: 클레임이 해제돼도 볼륨과 콘텐츠를 유지하도록 한다. 오로지 삭제 후에 재 생성만 가능하다
+- Recycle: 볼륨의 콘텐츠를 삭제하고 볼륨이 다시 클레임될 수 있도록 볼륨을 사용가능하도록 만든다 (현재 지원 X)
+- Delete: 기반 스토리지를 삭제한다
 
 ## 6.6 퍼시스턴트불륨의 동적 프로비저닝
+배경
+- PV과 PVC을 사용하더라도 클러스터 관리자가 실제 스토리지를 미리 프로비저닝해둬야 하는 문제가 있다
+- 쿠버네티스에서는 동적 프로비저닝을 통해서 이를 자동으로 수행할 수 있도록 지원한다
+
+방법
+- 퍼시스턴트볼륨을 생성하는 대신 퍼시스턴트볼륨 프로비저너를 배포하고, 사용자가 선택가능한 PV의 타입을 하나 이상의 스토리지클래스 오브젝트로 정의할 수 있다
+- 쿠버네티스는 대부분 인기 있는 클라우드 공급자의 프로비저너를 포함한다
+
+### 스토리지클래스 사용해보기
+스토리지클래스 정의
+- yaml 파일
+   ~~~yaml
+   apiVersion: storage.k8s.io/v1
+   kind: StorageClass
+   metadata:
+      name: fast
+   provisioner: kubernetes.io/gce-pd   # GCE의 PD(Persistent Disk)르를 프로비저너로 사용
+   parameters:
+      type: pd-ssd
+      zone: asia-east2-a
+   ~~~
+
+PVC 정의 생성하기
+- yaml 파일
+   ~~~yaml
+   apiVersion: v1
+   kind: PersistentVolumeClaim
+   metadata:
+      name: mongodb-pvc
+   spec:
+      storageClassName: fast  # 사용자 정의 스토리지 클래스 요청
+      resources:
+         requests:
+               storage: 100Mi   # 요청 용량
+         accessModes:
+               - ReadWriteOnce
+   ~~~
+
+스토리지 클래스 사용
+- 클러스터 관리자는 성능이나 기타 특성이 다른 여러 스토리지 클래스를 생성할 수 있다.<br>
+개발자는 생성할 각 클레임에 가장 적합한 스토리지 클래스를 결정한다
+   - _PD -> PVC -> Storeage Class -> Provisioner 이렇게 이어지겠구나_
+- 스토리지 클래스의 좋은점은 클레임 이름으로 이를 참조한다는 점이다.<br>
+-> 다른 클러스터간 스토리지클래스 이름을 동일하게 사용한다면 PVC정의를 다른 클러스터로 이식 가능하다
+
+### 스토리지 클래스를 지정하지 않은 동적 프로비저닝
+스토리지클래스 조회
+- 스토리지클래스 조회
+   ~~~
+   kubectl get sc
+   ~~~
+- 기본 스토리지클래스 정보
+   ~~~yaml
+   allowVolumeExpansion: true
+   apiVersion: storage.k8s.io/v1
+   kind: StorageClass
+   metadata:
+   annotations:
+      storageclass.kubernetes.io/is-default-class: "true"   # 기본값 표시
+   creationTimestamp: "2020-06-13T00:06:23Z"
+   labels:
+      addonmanager.kubernetes.io/mode: EnsureExists
+      kubernetes.io/cluster-service: "true"
+   name: standard
+   resourceVersion: "305"
+   selfLink: /apis/storage.k8s.io/v1/storageclasses/standard
+   uid: b762466b-ad09-11ea-80b9-42010aaa00da
+   parameters:
+   type: pd-standard # 프로비저너가 어떤 유형의 GCE PD를 생성할지 알려준다
+   provisioner: kubernetes.io/gce-pd   # 프로비저너 정보
+   reclaimPolicy: Delete
+   volumeBindingMode: Immediate   
+   ~~~
+
+스토리지클래스를 지정하지 않고 PVC을 생성하면 `pd-standard` 유형의 PD가 프로비저닝된다
+
+빈 문자열을 스토리지클래스 이름으로 지정하면 PVC가 새로운 PV를 동적 프로비저닝하는 대신 미리 프로비저닝되나 PV에 바인딩된다
+
+![6-10](/images/6-10.jpg)

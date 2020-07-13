@@ -1,0 +1,8 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+    name: fast
+provisioner: kubernetes.io/gce-pd   # GCE의 PD(Persistent Disk)르를 프로비저너로 사용
+parameters:
+    type: pd-ssd
+    zone: asia-east2-a

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: mongodb-pvc
+spec:
+    storageClassName: fast  # 사용자 정의 스토리지 클래스 요청
+    resources:
+        requests:
+            storage: 100Mi   # 요청 용량
+        accessModes:
+            - ReadWriteOnce
