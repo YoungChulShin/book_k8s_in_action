@@ -1,0 +1,11 @@
+apiVersion: v1
+data:
+  sleep-interval: "25"
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2020-07-20T20:39:02Z"
+  name: fortune-config
+  namespace: default
+  resourceVersion: "11398854"
+  selfLink: /api/v1/namespaces/default/configmaps/fortune-config
+  uid: 0b9de3f6-cac9-11ea-95af-42010aaa002a
