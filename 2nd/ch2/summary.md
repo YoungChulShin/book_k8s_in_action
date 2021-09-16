@@ -67,12 +67,11 @@ docker push {docker hub id}/{image name}
 docker run -p 8080:8080 -d {docker hub id}/{image name}
 ```
 
-## 쿠버네티스
-minikube
-- 멀티 노드 환경 시작
-   ```
-   minikube start --nodes 4 -p multinode-demo  
-   ```
+## 쿠버네티스 환경 구성
+minikube 멀티 노드 환경 시작
+```
+minikube start --nodes 4 -p multinode-demo  
+```
 
 쿠버네티스 명령어
 ```
@@ -80,5 +79,67 @@ minikube
 kubectl get nodes
 
 // 노드 세부 정보 조회
+kubectl describe node {node name}
+
+// 별칭 생성 - .bashrc 또는 .zshrc 에서 아래 값 추가
+alias k=kubectl
+```
+
+## 쿠버네티스 애플리케이션 실행
+애플리케이션 구동
+```
+kubectl run {pod name} --image={image} --port=8080
+```
+
+파드(Pod)
+- 컨테이너의 그룹 개념
+- 같은 워커노드에서 같은 리눅스 네임스페이스로 실행
+- 각 파드는 자체 IP, 호스트 이름, 프로세스 등이 있는 논리적으로 분리된 머신
+- 파드에서 실행중인 모든 컨테이너는 동일한 머신에서 실행되는 것처럼 보이는 반면, 다른 파드에서 실행중인 컨테이너는 같은 워커노드라도 다른 머신에서 실행 중인 것으로 나타난다. (= _리눅스의 네임스페이스 격리인듯_)
+
+파드 생성 프로세스
+1. kubectl 명령어로 API 서버로 REST HTTP 요청이 전달
+2. API 서버는 변경 내용을 ectd에 저장
+3. 컨트롤러 매니저가 관련 컨트롤러를 생성
+   1. ReplicationController 오브젝트 생성
+   2. ReplicationController는 Pod를 생성
+4. 스케줄러에 의해서 하나의 워커노드에 스케줄링
+5. Kubelet은 파드가 스케줄링 된 것을 확인하고 도커(conatiner runtime)에게 이미지를 풀 하도록 지시
+6. 이미지 풀이 완료되면 도커가 컨테이너를 생성 하고 실행
+
+서비스
+- 클러스터 IP 서비스
+   - 내부에서 접근 가능한 IP를 노출
+- 로드밸런서 서비스
+   - 파드를 외부에서 접근 가능하도록 노출
+   ```
+   kubectl expose rc kubia --type=LoadBalancer --name kubia-http
+   minikube service kubia-http --profile {profile name}
+   ```
+- 필요한 이유
+   - 파드는 일시적이기 때문에 계속 생성되고 삭제되는 파드들에 접근할 수 있는 단일 접속 포인트가 필요하다. 서비스가 이 역할을 한다. 
+   - 서비스가 생성되면 정적 IP를 할당 받고, 서비스가 존속되는 동안 변경되지 않는다. 
+   - 클라이언트는 파드에 직접 접근하는 대신, 서비스의 IP 주소를 통해 연결해야 한다. 
+- 서비스는 파드가 2개 이상일 경우, 로드밸런서 역할을 한다. 
+
+레플리케이션 컨트롤러
+- replicas 수 만큼 파드가 실행되도록 한다
+- replicas 수 늘리기
+   ```
+   kubectl scale rc kubia --repliocas=3
+   ```
+
+파드 명렁어
+```
+// 파드 조회
+kubectl get pods 
+kubectl get pods -o wide
+kubectl get pods -o yaml
+
+// 파드 세부 정보 조회
+kubectl describe pod {pod name}
+
+// 서비스 조회
+kubectl get services
 
 ```
