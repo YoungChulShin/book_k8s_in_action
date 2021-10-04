@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: kubia-gpu
 spec:
-  nodeSelector:
+  nodeSelector:   # nodeSelector를 이용해서 gpu=true 레이블을 포함한 노드에 파시를 배포하도록 한다
     gpu: "true"
   containers:
   - image: go1323/kubia_2

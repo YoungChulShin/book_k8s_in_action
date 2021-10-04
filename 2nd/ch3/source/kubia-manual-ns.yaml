@@ -2,9 +2,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: kubia-manual-v2
-  labels:                   # 메타데이터에 label 설정
-    creation_method: manual
-    env: prod
+  namespace: custom-namespace
 spec:
   containers:
   - image: go1323/kubia

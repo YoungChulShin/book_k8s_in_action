@@ -1,11 +1,11 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: kubia-manual
-spec:
-  containers:
-  - image: go1323/kubia_2
-    name: kubia
-    ports:
-    - containerPort: 8080
-      protocol: TCP
+apiVersion: v1              # 쿠버네티스 API 버전 (https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.22/#-strong-api-groups-strong-)
+kind: Pod                   # 리소스 종류
+metadata:                   # 이름, 네임스페이스, 레이블 및 파드에 관한 정보를 설정
+ name: kubia-manual         # 파드 이름
+spec:                       # 파드 컨테이너, 볼륨, 기타 데이터 등 파드 자체에 대한 명세  
+ containers:                # 컨테이너 이미지 설정
+ - image: go1323/kubia_2    # 이미지 경로
+   name: kubia              # 컨테이너 이름
+   ports:
+   - containerPort: 8080     # 애플리케이션 수신 포트
+     protocol: TCP
