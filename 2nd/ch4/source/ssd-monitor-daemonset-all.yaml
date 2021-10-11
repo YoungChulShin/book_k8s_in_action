@@ -1,0 +1,16 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ssd-monitor2
+spec: 
+  selector:
+    matchLabels:
+      app: ssd-monitor2
+  template:
+    metadata:
+      labels:
+        app: ssd-monitor2
+    spec:
+      containers:
+      - name: main
+        image: luksa/ssd-monitor
