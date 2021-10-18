@@ -52,6 +52,7 @@ FQDN을 통한 서비스 연결
      search default.svc.cluster.local svc.cluster.local cluster.local
      options ndots:5
      ```
+- 참고 사이트: https://jonnung.dev/kubernetes/2020/05/11/kubernetes-dns-about-coredns/
 
 ## 클러스터 외부에 서비스 연결
 서비스 엔드포인트
