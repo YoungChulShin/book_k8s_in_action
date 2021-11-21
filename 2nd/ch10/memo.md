@@ -137,3 +137,6 @@ Data stored in the cluster:
 
 
 
+
+헤드리스 서비스
+- https://kubernetes.io/ko/docs/concepts/services-networking/service/
